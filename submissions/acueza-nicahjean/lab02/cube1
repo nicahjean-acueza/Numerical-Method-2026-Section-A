@@ -1,0 +1,368 @@
+"""
+6m x 6m x 6m Cube Structural Solver - Revision 3
+Matches image 18.jpg layout, side panel, legend, and full Excel summary parameters.
+"""
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+
+
+def run_solver_rev3():
+    # ---------------------------------------------------------
+    # 1. MODEL DATA STRUCTURES
+    # ---------------------------------------------------------
+
+    # 1. Nodes Sheet
+    nodes_data = {
+        'Node': [1, 2, 3, 4, 5, 6, 7, 8],
+        'X (m)': [0.000, 6.000, 6.000, 0.000, 0.000, 6.000, 6.000, 0.000],
+        'Y (m)': [0.000, 0.000, 0.000, 0.000, 6.000, 6.000, 6.000, 6.000],
+        'Z (m)': [0.000, 0.000, 6.000, 6.000, 0.000, 0.000, 6.000, 6.000],
+        'Support': [
+            'Pinned',
+            'Pinned',
+            'Pinned',
+            'Pinned',
+            'Free',
+            'Free',
+            'Free',
+            'Free',
+        ],
+    }
+    df_nodes = pd.DataFrame(nodes_data)
+
+    # 2. Member Incidences Sheet
+    members_data = {
+        'Member': list(range(1, 13)),
+        'Node i (Start)': [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4],
+        'Node j (End)': [2, 3, 4, 1, 6, 7, 8, 5, 5, 6, 7, 8],
+        'Type': ['Base Beam'] * 4 + ['Roof Beam'] * 4 + ['Column'] * 4,
+        'Length (m)': [6.000] * 12,
+        'Beta (deg)': [0.0] * 8 + [90.0] * 4,
+    }
+    df_members = pd.DataFrame(members_data)
+
+    # 3. Supports Sheet
+    supports_data = {
+        'Node': [1, 2, 3, 4, 5, 6, 7, 8],
+        'X (m)': [0.000, 6.000, 6.000, 0.000, 0.000, 6.000, 6.000, 0.000],
+        'Y (m)': [0.000, 0.000, 0.000, 0.000, 6.000, 6.000, 6.000, 6.000],
+        'Z (m)': [0.000, 0.000, 6.000, 6.000, 0.000, 0.000, 6.000, 6.000],
+        'Support Type': ['Pinned'] * 4 + ['Free'] * 4,
+        'UX': ['Restrained'] * 4 + ['Active'] * 4,
+        'UY': ['Restrained'] * 4 + ['Active'] * 4,
+        'UZ': ['Restrained'] * 4 + ['Active'] * 4,
+        'RX': ['Active'] * 8,
+        'RY': ['Active'] * 8,
+        'RZ': ['Active'] * 8,
+        'Restraint Code': ['111000'] * 4 + ['000000'] * 4,
+    }
+    df_supports = pd.DataFrame(supports_data)
+
+    # 4. Local Axes Sheet
+    local_axes_data = {
+        'Member': list(range(1, 13)),
+        'Node i': [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4],
+        'Node j': [2, 3, 4, 1, 6, 7, 8, 5, 5, 6, 7, 8],
+        'Type': ['Base Beam'] * 4 + ['Roof Beam'] * 4 + ['Column'] * 4,
+        'Length (m)': [6.000] * 12,
+        'Beta (deg)': [0] * 8 + [90] * 4,
+        'local x - X': [1.0, 0.0, -1.0, 0.0, 1.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        'local x - Y': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0],
+        'local x - Z': [0.0, 1.0, 0.0, -1.0, 0.0, 1.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0],
+        'local y - X': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        'local y - Y': [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+        'local y - Z': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0],
+        'local z - X': [0.0, -1.0, 0.0, 1.0, 0.0, -1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+        'local z - Y': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        'local z - Z': [1.0, 0.0, -1.0, 0.0, 1.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+    }
+    df_local_axes = pd.DataFrame(local_axes_data)
+
+    # 5. Node DOF Sheet
+    node_dof_data = {
+        'Node': [1, 2, 3, 4, 5, 6, 7, 8],
+        'Support': ['Pinned'] * 4 + ['Free'] * 4,
+        'Global DOF Range': [
+            '1 - 6',
+            '7 - 12',
+            '13 - 18',
+            '19 - 24',
+            '25 - 30',
+            '31 - 36',
+            '37 - 42',
+            '43 - 48',
+        ],
+        'UX': ['Restrained'] * 4 + ['Active'] * 4,
+        'UY': ['Restrained'] * 4 + ['Active'] * 4,
+        'UZ': ['Restrained'] * 4 + ['Active'] * 4,
+        'RX': ['Active'] * 8,
+        'RY': ['Active'] * 8,
+        'RZ': ['Active'] * 8,
+        'Active DOF': [3] * 4 + [6] * 4,
+    }
+    df_node_dof = pd.DataFrame(node_dof_data)
+
+    # 6. DOF Numbering Sheet (Full 48 DOFs)
+    dof_rows = []
+    eq_num = 1
+    for n in range(1, 9):
+        is_pinned = n <= 4
+        dofs = [
+            ('UX', 'Translation X', is_pinned),
+            ('UY', 'Translation Y', is_pinned),
+            ('UZ', 'Translation Z', is_pinned),
+            ('RX', 'Rotation X', False),
+            ('RY', 'Rotation Y', False),
+            ('RZ', 'Rotation Z', False),
+        ]
+        for local_dof, (dof_code, desc, restrained) in enumerate(dofs, 1):
+            global_dof = (n - 1) * 6 + local_dof
+            status = 'Restrained' if restrained else 'Active'
+            eq_str = '-' if restrained else str(eq_num)
+            if not restrained:
+                eq_num += 1
+            dof_rows.append({
+                'Node': n,
+                'Local DOF': local_dof,
+                'DOF': dof_code,
+                'Description': desc,
+                'Global DOF No.': global_dof,
+                'Status': status,
+                'Equation No.': eq_str,
+            })
+    df_dof_num = pd.DataFrame(dof_rows)
+
+    # 7. Model Summary Sheet (Updated with vertical/lateral axes and beta angles)
+    summary_data = {
+        'Parameter': [
+            'Model Title',
+            'Revision',
+            'Global Vertical Axis',
+            'Global Lateral Axes',
+            'Length Unit',
+            'Total Nodes',
+            'Total Members',
+            'Supported Nodes',
+            'Free Nodes',
+            'Total DOFs',
+            'Restrained DOFs',
+            'Active DOFs',
+            'Beta Angle - Base Beams (deg)',
+            'Beta Angle - Roof Beams (deg)',
+            'Beta Angle - Columns (deg)',
+        ],
+        'Value': [
+            '6m x 6m x 6m Cube Structure',
+            'Rev. 1',
+            'Y-axis',
+            'X-axis, Z-axis',
+            'meters (m)',
+            8,
+            12,
+            4,
+            4,
+            48,
+            12,
+            36,
+            '0.0 deg',
+            '0.0 deg',
+            '90.0 deg',
+        ],
+    }
+    df_summary = pd.DataFrame(summary_data)
+
+    # ---------------------------------------------------------
+    # 2. EXCEL REPORT GENERATION
+    # ---------------------------------------------------------
+    excel_file = 'cube_6m_solver_rev1.xlsx'
+    with pd.ExcelWriter(excel_file, engine='openpyxl') as writer:
+        df_summary.to_excel(writer, sheet_name='Model Summary', index=False)
+        df_nodes.to_excel(writer, sheet_name='Nodes', index=False)
+        df_members.to_excel(writer, sheet_name='Member Incidences', index=False)
+        df_supports.to_excel(writer, sheet_name='Supports', index=False)
+        df_local_axes.to_excel(writer, sheet_name='Local Axes', index=False)
+        df_node_dof.to_excel(writer, sheet_name='Node DOF', index=False)
+        df_dof_num.to_excel(writer, sheet_name='DOF Numbering', index=False)
+
+    print(f'Excel file created successfully: {excel_file}')
+
+    # ---------------------------------------------------------
+    # 3. 3D VISUALIZATION (Exact Match to image 18.jpg)
+    # ---------------------------------------------------------
+    fig = plt.figure(figsize=(16, 10))
+    # Reserve right space for the Model Data text box
+    ax = fig.add_axes([0.02, 0.05, 0.70, 0.88], projection='3d')
+
+    coords = df_nodes.set_index('Node')
+
+    # Draw Members
+    for _, row in df_members.iterrows():
+        m_id = row['Member']
+        ni, nj = row['Node i (Start)'], row['Node j (End)']
+        m_type, beta = row['Type'], row['Beta (deg)']
+
+        n1, n2 = coords.loc[ni], coords.loc[nj]
+        x = [n1['X (m)'], n2['X (m)']]
+        y = [n1['Z (m)'], n2['Z (m)']]
+        z = [n1['Y (m)'], n2['Y (m)']]
+
+        color = 'blue' if 'Beam' in m_type else 'mediumseagreen'
+        ax.plot(x, y, z, color=color, linewidth=2, zorder=3)
+
+        mx, my, mz = sum(x) / 2, sum(y) / 2, sum(z) / 2
+        label = f'M{m_id} (β={int(beta)}°)' if beta != 0 else f'M{m_id}'
+        ax.text(
+            mx,
+            my,
+            mz,
+            label,
+            color='black',
+            fontsize=8,
+            ha='center',
+            va='center',
+            fontweight='bold',
+        )
+
+    # Draw Nodes & 3D Pinned Pyramids
+    for node, row in coords.iterrows():
+        x, y, z = row['X (m)'], row['Z (m)'], row['Y (m)']
+        if node <= 4:
+            ax.scatter(x, y, z, color='red', marker='o', s=60, zorder=5)
+
+            # Pyramid for pinned base
+            h, w = 0.8, 0.5
+            p_top = [x, y, z]
+            p1 = [x - w, y - w, z - h]
+            p2 = [x + w, y - w, z - h]
+            p3 = [x + w, y + w, z - h]
+            p4 = [x - w, y + w, z - h]
+            faces = [
+                [p_top, p1, p2],
+                [p_top, p2, p3],
+                [p_top, p3, p4],
+                [p_top, p4, p1],
+                [p1, p2, p3, p4],
+            ]
+            poly = Poly3DCollection(
+                faces, facecolors='dimgray', edgecolors='black', alpha=0.9, zorder=4
+            )
+            ax.add_collection3d(poly)
+
+            ax.text(
+                x,
+                y + 0.3,
+                z + 0.3,
+                f'N{node}\nDOF {(node-1)*6+1}-{(node)*6}',
+                fontweight='bold',
+                fontsize=8,
+            )
+        else:
+            ax.scatter(x, y, z, color='red', marker='o', s=50, zorder=5)
+            ax.text(
+                x,
+                y + 0.3,
+                z + 0.3,
+                f'N{node}\nDOF {(node-1)*6+1}-{(node)*6}',
+                fontweight='bold',
+                fontsize=8,
+            )
+
+    # Draw Local Axes Quivers
+    for _, row in df_local_axes.iterrows():
+        ni, nj = row['Node i'], row['Node j']
+        n1, n2 = coords.loc[ni], coords.loc[nj]
+
+        mx = (n1['X (m)'] + n2['X (m)']) / 2
+        my = (n1['Z (m)'] + n2['Z (m)']) / 2
+        mz = (n1['Y (m)'] + n2['Y (m)']) / 2
+
+        lx = np.array([row['local x - X'], row['local x - Z'], row['local x - Y']])
+        ly = np.array([row['local y - X'], row['local y - Z'], row['local y - Y']])
+        lz = np.array([row['local z - X'], row['local z - Z'], row['local z - Y']])
+
+        scale = 0.8
+        ax.quiver(
+            mx, my, mz, lx[0], lx[1], lx[2], length=scale, color='red', arrow_length_ratio=0.3, linewidth=1.2
+        )
+        ax.quiver(
+            mx, my, mz, ly[0], ly[1], ly[2], length=scale, color='green', arrow_length_ratio=0.3, linewidth=1.2
+        )
+        ax.quiver(
+            mx, my, mz, lz[0], lz[1], lz[2], length=scale, color='purple', arrow_length_ratio=0.3, linewidth=1.2
+        )
+
+    # Upper Left Legend (Matching Image 18)
+    ax.plot([], [], color='blue', label='Beam')
+    ax.plot([], [], color='mediumseagreen', label='Column')
+    ax.scatter([], [], color='red', marker='o', s=40, label='Supported node (pinned)')
+    ax.scatter([], [], color='red', marker='o', s=20, label='Free node')
+    ax.scatter([], [], color='green', marker='*', s=80, label='Origin (0, 0, 0)')
+    ax.plot([], [], color='red', label='Local x axis')
+    ax.plot([], [], color='green', label='Local y axis')
+    ax.plot([], [], color='purple', label='Local z axis')
+    ax.legend(loc='upper left', bbox_to_anchor=(0.0, 0.98), fontsize=8, frameon=True)
+
+    # Side Data Panel Box (Exact layout of MODEL DATA - REV. 1)
+    info_text = (
+        "MODEL DATA - REV. 1\n"
+        "\n"
+        "Geometry\n"
+        "  Cube edge          6.0 m\n"
+        "  Nodes              8\n"
+        "  Members            12\n"
+        "  Vertical axis      global Y\n"
+        "\n"
+        "Supports\n"
+        "  Type               pinned\n"
+        "  Nodes              1, 2, 3, 4\n"
+        "  Restrained         UX, UY, UZ\n"
+        "  Released           RX, RY, RZ\n"
+        "\n"
+        "Degrees of freedom\n"
+        "  DOF per node       6\n"
+        "  Total DOF          48\n"
+        "  Restrained DOF     12\n"
+        "  Active DOF         36\n"
+        "  Numbering          (node - 1) * 6 + 1..6\n"
+        "\n"
+        "Beta angles\n"
+        "  Base Beam          0 deg\n"
+        "  Roof Beam          0 deg\n"
+        "  Column             90 deg\n"
+        "\n"
+        "Local axes\n"
+        "  local x   start node i to end node j\n"
+        "  local y   in the vertical plane, upward\n"
+        "  local z   completes the right-handed set\n"
+        "  Vertical members follow the limiting\n"
+        "  case: local z parallel to global Z."
+    )
+
+    bbox_props = dict(boxstyle='round,pad=0.6', facecolor='white', edgecolor='black', linewidth=0.8)
+    fig.text(0.74, 0.50, info_text, fontsize=8, family='monospace', verticalalignment='center', bbox=bbox_props)
+
+    # Axis Title and Labels
+    ax.set_xlabel('X (m) - lateral', fontweight='bold', labelpad=10)
+    ax.set_ylabel('Z (m) - lateral', fontweight='bold', labelpad=10)
+    ax.set_zlabel('Y (m) - vertical', fontweight='bold', labelpad=10)
+
+    ax.set_title(
+        '6m x 6m x 6m Cube - Structural Model, Rev. 1\nPinned supports at nodes 1-4, member local axes and beta angles shown',
+        fontweight='bold',
+        fontsize=11,
+    )
+
+    ax.set_xlim([-1, 7])
+    ax.set_ylim([-1, 7])
+    ax.set_zlim([-1, 7])
+    ax.view_init(elev=20, azim=-60)
+
+    plt.savefig('cube_structural_model_rev1_final.png', dpi=300, bbox_inches='tight')
+    plt.show()
+
+
+if __name__ == '__main__':
+    run_solver_rev3()
