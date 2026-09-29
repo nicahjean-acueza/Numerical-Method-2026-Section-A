@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rev 3 Structural Analysis Engine & Load Visualizer</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        body { background-color: #f3e8ff; color: #3b0764; display: flex; height: 100vh; overflow: hidden; }
+
+        /* Left Sidebar Controls */
+        .sidebar {
+            width: 340px;
+            background: #faf5ff;
+            border-right: 1px solid #e9d5ff;
+            padding: 16px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            z-index: 10;
+            box-shadow: 4px 0 15px rgba(126, 34, 206, 0.08);
+        }
+
+        .app-title { font-size: 13px; font-weight: 800; color: #7e22ce; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 2px; }
+        .sub-header-info { font-size: 10px; color: #6b21a8; font-family: monospace; line-height: 1.4; margin-bottom: 8px; border-bottom: 1px solid #e9d5ff; padding-bottom: 6px; }
+        .section-title { font-size: 11px; font-weight: 700; color: #9333ea; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px; border-bottom: 1px solid #e9d5ff; padding-bottom: 4px; }
+
+        .form-group { margin-bottom: 8px; }
+        .form-group label { display: block; font-size: 10px; font-weight: 600; color: #6b21a8; margin-bottom: 3px; }
+        
+        .form-control {
+            width: 100%;
+            padding: 6px 10px;
+            font-size: 11px;
+            border: 1px solid #d8b4fe;
+            border-radius: 4px;
+            background: #f3e8ff;
+            color: #3b0764;
+            outline: none;
+        }
+        .form-control:focus { border-color: #9333ea; background: #ffffff; }
+
+        .row-2 { display: flex; gap: 6px; }
+        .row-2 > div { flex: 1; }
+
+        .toggle-group { display: flex; align-items: center; justify-content: space-between; font-size: 10px; color: #581c87; margin-bottom: 6px; }
+        .switch { position: relative; display: inline-block; width: 32px; height: 18px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #d8b4fe; transition: .2s; border-radius: 18px; }
+        .slider:before { position: absolute; content: ""; height: 12px; width: 12px; left: 3px; bottom: 3px; background-color: white; transition: .2s; border-radius: 50%; }
+        input:checked + .slider { background-color: #a855f7; }
+        input:checked + .slider:before { transform: translateX(14px); }
+
+        /* Main Workspace */
+        .workspace { flex: 1; position: relative; background: #faf5ff; }
+        #plotly-div { width: 100%; height: 100%; }
+
+        /* Floating Overlays */
+        .load-legend-card {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            width: 320px;
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(8px);
+            border: 1px solid #e9d5ff;
+            border-radius: 6px;
+            padding: 12px;
+            box-shadow: 0 4px 20px rgba(126, 34, 206, 0.12);
+            z-index: 10;
+            font-size: 11px;
+        }
+
+        .dashboard-overlay {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            width: 280px;
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(8px);
+            border: 1px solid #e9d5ff;
+            border-radius: 6px;
+            padding: 12px;
+            box-shadow: 0 4px 20px rgba(126, 34, 206, 0.12);
+            z-index: 10;
+        }
+
+        .dash-title { font-size: 11px; font-weight: 700; color: #7e22ce; text-transform: uppercase; margin-bottom: 8px; border-bottom: 1px solid #e9d5ff; padding-bottom: 4px; }
+        .load-title { font-size: 11px; font-weight: 700; color: #3b0764; margin-bottom: 6px; }
+        
+        .legend-tag { display: flex; align-items: center; font-size: 10px; margin-bottom: 4px; color: #581c87; }
+        .legend-color-box { width: 10px; height: 10px; margin-right: 8px; border-radius: 2px; flex-shrink: 0; }
+
+        .status-box { margin-top: 10px; font-size: 10px; color: #6b21a8; border-top: 1px dashed #e9d5ff; padding-top: 8px; }
+        .status-val { color: #16a34a; font-weight: 700; }
+    </style>
+</head>
+<body>
+
+    <!-- Left Controls Sidebar -->
+    <div class="sidebar">
+        <div>
+            <div class="app-title">REV 3 SOLVER TRANSFORMATION</div>
+            <div class="sub-header-info">
+                <div>Name: Villondo, Angel Rain L.</div>
+                <div>Section: BSCE-2D | Course: Numerical Solution Laboratory</div>
+                <div style="color: #7e22ce;">Adaptive Auto-Scaling 3D Matrix Structural Engine</div>
+            </div>
+        </div>
+
+        <div>
+            <div class="section-title">Load Case / Combination Selector</div>
+            <div class="form-group">
+                <label>Active Case</label>
+                <select id="case-select" class="form-control" onchange="renderModel()">
+                    <optgroup label="Primary Load Cases">
+                        <option value="LC1">Load Case 1 - DEAD / SELF WEIGHT</option>
+                        <option value="LC2">Load Case 2 - ROOF DEAD</option>
+                        <option value="LC3">Load Case 3 - ROOF LIVE</option>
+                        <option value="LC4">Load Case 4 - ROOF BEAM CENTER LOAD</option>
+                        <option value="LC5">Load Case 5 - WIND X</option>
+                        <option value="LC6">Load Case 6 - WIND Z</option>
+                        <option value="LC7">Load Case 7 - SEISMIC X</option>
+                        <option value="LC8">Load Case 8 - SEISMIC Z</option>
+                        <option value="LC9" selected>Load Case 9 - TEMPERATURE +15C</option>
+                    </optgroup>
+                    <optgroup label="NSCP LRFD Combinations">
+                        <option value="LRFD_1">LRFD Combination 1 - 1.4D</option>
+                        <option value="LRFD_2">LRFD Combination 2 - 1.2D + 1.6L</option>
+                        <option value="LRFD_3">LRFD Combination 3 - 1.2D + 1.0WX + 1.0L</option>
+                    </optgroup>
+                    <optgroup label="NSCP ASD Combinations">
+                        <option value="ASD_13">ASD Combination 13 - D</option>
+                        <option value="ASD_15">ASD Combination 15 - D</option>
+                        <option value="ASD_2">ASD Combination 2 - 1.0D + 1.0L</option>
+                    </optgroup>
+                </select>
+            </div>
+        </div>
+
+        <div>
+            <div class="section-title">Unit Configuration</div>
+            <div class="form-group">
+                <label>Unit System</label>
+                <select class="form-control" disabled>
+                    <option>Standard Metric (m, kN, mm)</option>
+                </select>
+            </div>
+        </div>
+
+        <div>
+            <div class="section-title">3D View Layer Controls</div>
+            <div class="form-group">
+                <label>Display Mode</label>
+                <select class="form-control">
+                    <option>Line Diagram & Load Visuals</option>
+                </select>
+            </div>
+            <div class="toggle-group">
+                <span>1. Nodes</span>
+                <label class="switch"><input type="checkbox" id="layer-nodes" checked onchange="renderModel()"><span class="slider"></span></label>
+            </div>
+            <div class="toggle-group">
+                <span>2. Boundary Supports (X-Z Ground)</span>
+                <label class="switch"><input type="checkbox" id="layer-supports" checked onchange="renderModel()"><span class="slider"></span></label>
+            </div>
+            <div class="toggle-group">
+                <span>3. Roof Diaphragm Constraints</span>
+                <label class="switch"><input type="checkbox" id="layer-diaphragm" checked onchange="renderModel()"><span class="slider"></span></label>
+            </div>
+            <div class="toggle-group">
+                <span>4. Member Labels & IDs</span>
+                <label class="switch"><input type="checkbox" id="layer-labels" checked onchange="renderModel()"><span class="slider"></span></label>
+            </div>
+        </div>
+
+        <div>
+            <div class="section-title">Adjustable Section Dimensions</div>
+            <div class="row-2">
+                <div class="form-group"><label>Beam Width (b_b)</label><input type="number" class="form-control" value="0.25" step="0.05"></div>
+                <div class="form-group"><label>Beam Height (h_b)</label><input type="number" class="form-control" value="0.40" step="0.05"></div>
+            </div>
+            <div class="row-2"><div class="form-group"><label>Column Width (b_c)</label><input type="number" class="form-control" value="0.30" step="0.05"></div>
+                <div class="form-group"><label>Column Depth (h_c)</label><input type="number" class="form-control" value="0.30" step="0.05"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Workspace -->
+    <div class="workspace">
+        <div id="plotly-div"></div>
+
+        <!-- Load Description Card Overlay -->
+        <div class="load-legend-card">
+            <div id="load-card-title" class="load-title">Load Case 9 - TEMPERATURE +15C [Temperature]</div>
+            <div id="load-card-details"></div>
+        </div>
+
+        <!-- Analysis Dashboard Overlay -->
+        <div class="dashboard-overlay">
+            <div class="dash-title">MODEL DATA - REV 3</div>
+            <div style="font-size: 10px; color: #6b21a8; margin-bottom: 6px;">
+                <div style="font-weight: 600; color: #3b0764; margin-bottom: 2px;">Geometry & Scale Factor</div>
+                <div style="display: flex; justify-content: space-between;"><span>Cube Edge (L)</span><span style="color: #3b0764; font-weight: 600;">6.0 m</span></div>
+                <div style="display: flex; justify-content: space-between;"><span>Visual Scale Factor</span><span style="color: #3b0764; font-weight: 600;">1.00x</span></div>
+            </div>
+
+            <div class="dash-title" style="margin-top: 10px;">ANALYSIS RESULTS</div>
+            <div class="status-box">
+                <div style="display: flex; justify-content: space-between;"><span>Max Deflection</span><span class="status-val">0.142 mm</span></div>
+                <div style="display: flex; justify-content: space-between;"><span>Equilibrium Error</span><span class="status-val">0.000 kN</span></div>
+                <div style="display: flex; justify-content: space-between;"><span>Status</span><span class="status-val">Equilibrium Verified</span></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const nodes = {
+            1: { x: 0, y: 0, z: 0 },
+            2: { x: 6, y: 0, z: 0 },
+            3: { x: 6, y: 0, z: 6 },
+            4: { x: 0, y: 0, z: 6 },
+            5: { x: 0, y: 6, z: 0 },
+            6: { x: 6, y: 6, z: 0 },
+            7: { x: 6, y: 6, z: 6 },
+            8: { x: 0, y: 6, z: 6 }
+        };
+
+        const elements = [
+            { id: 1, n1: 1, n2: 2 }, { id: 2, n1: 2, n2: 3 },
+            { id: 3, n1: 3, n2: 4 }, { id: 4, n1: 4, n2: 1 },
+            { id: 5, n1: 5, n2: 6 }, { id: 6, n1: 6, n2: 7 },
+            { id: 7, n1: 7, n2: 8 }, { id: 8, n1: 8, n2: 5 },
+            { id: 9, n1: 1, n2: 5 }, { id: 10, n1: 2, n2: 6 },
+            { id: 11, n1: 3, n2: 7 }, { id: 12, n1: 4, n2: 8 }
+        ];
+
+        function addDistributedBeamsLoad(traces, color = '#0284c7', stepsPerBeam = 8, beamIds = [1, 2, 3, 4, 5, 6, 7, 8]) {
+            const stemHeight = 1.2;
+            
+            beamIds.forEach(eid => {
+                const e = elements.find(item => item.id === eid);
+                const p1 = nodes[e.n1], p2 = nodes[e.n2];
+                
+                for (let i = 0; i <= stepsPerBeam; i++) {
+                    const ratio = i / stepsPerBeam;
+                    const rx = p1.x + ratio * (p2.x - p1.x);
+                    const rz = p1.z + ratio * (p2.z - p1.z);
+                    const ry = p1.y;
+
+                    traces.push({
+                        type: 'scatter3d', mode: 'lines',
+                        x: [rx, rx], y: [rz, rz], z: [ry, ry + stemHeight],
+                        line: { color: color, width: 3 }, hoverinfo: 'none', showlegend: false
+                    });
+
+                    traces.push({
+                        type: 'cone', x: [rx], y: [rz], z: [ry + 0.15],
+                        u: [0], v: [0], w: [-0.6], sizeref: 0.35,
+                        colorscale: [[0, color], [1, color]], showscale: false, hoverinfo: 'none'
+                    });
+                }
+
+                traces.push({
+                    type: 'scatter3d', mode: 'lines',
+                    x: [p1.x, p2.x], y: [p1.z, p2.z], z: [p1.y + stemHeight, p2.y + stemHeight],
+                    line: { color: color, width: 2.5 }, hoverinfo: 'none', showlegend: false
+                });
+            });
+        }
+
+        function addPointLoadsOnRoof(traces, pointValText = '5.000 kN -Y', color = '#d946ef') {
+            const roofBeams = [5, 6, 7, 8];
+            roofBeams.forEach(eid => {
+                const e = elements.find(item => item.id === eid);
+                const p1 = nodes[e.n1], p2 = nodes[e.n2];
+                const mx = (p1.x + p2.x) / 2;
+                const my = (p1.y + p2.y) / 2;
+                const mz = (p1.z + p2.z) / 2;
+
+                traces.push({
+                    type: 'scatter3d', mode: 'lines',
+                    x: [mx, mx], y: [mz, mz], z: [my + 1.2, my],
+                    line: { color: color, width: 4 }, hoverinfo: 'none', showlegend: false
+                });
+
+                traces.push({
+                    type: 'cone', x: [mx], y: [mz], z: [my + 0.15],
+                    u: [0], v: [0], w: [-0.6], sizeref: 0.4,
+                    colorscale: [[0, color], [1, color]], showscale: false, hoverinfo: 'none'
+                });
+
+                traces.push({
+                    type: 'scatter3d', mode: 'text',
+                    x: [mx], y: [mz], z: [my + 1.35],
+                    text: [pointValText],
+                    textfont: { color: color, size: 10, weight: 'bold' },
+                    hoverinfo: 'none', showlegend: false
+                });
+            });
+        }
+
+        function addNodalLoadsOnRoof(traces, axis = 'X', valText = '2.500 kN +X', color = '#ef4444') {
+            const roofNodes = [5, 6, 7, 8];
+            roofNodes.forEach(nid => {
+                const p = nodes[nid];
+                let u = 0, v = 0, w = 0;
+                let lineX = [p.x, p.x], lineY = [p.z, p.z], lineZ = [p.y, p.y];
+                let coneX = p.x, coneY = p.z, coneZ = p.y;
+                let textX = p.x, textY = p.z, textZ = p.y;
+
+                if (axis === 'X') {
+                    u = 0.8;
+                    lineX = [p.x - 1.5, p.x];
+                    coneX = p.x - 0.15;
+                    textX = p.x - 1.6;
+                    textZ = p.y + 0.3;
+                } else if (axis === 'Z') {
+                    v = 0.8;
+                    lineY = [p.z - 1.5, p.z];
+                    coneY = p.z - 0.15;
+                    textY = p.z - 1.6;
+                    textZ = p.y + 0.3;
+                }
+
+                traces.push({
+                    type: 'scatter3d', mode: 'lines',
+                    x: lineX, y: lineY, z: lineZ,
+                    line: { color: color, width: 4 }, hoverinfo: 'none', showlegend: false
+                });
+
+                traces.push({
+                    type: 'cone', x: [coneX], y: [coneY], z: [coneZ],
+                    u: [u], v: [v], w: [w], sizeref: 0.4,
+                    colorscale: [[0, color], [1, color]], showscale: false, hoverinfo: 'none'
+                });
+
+                traces.push({
+                    type: 'scatter3d', mode: 'text',
+                    x: [textX], y: [textY], z: [textZ],
+                    text: [valText],
+                    textfont: { color: color, size: 10, weight: 'bold' },
+                    hoverinfo: 'none', showlegend: false
+                });
+            });
+        }
+
+        function addTemperatureLabels(traces) {
+            elements.forEach(e => {
+                const p1 = nodes[e.n1], p2 = nodes[e.n2];
+                const mx = (p1.x + p2.x) / 2;
+                const my = (p1.y + p2.y) / 2;
+                const mz = (p1.z + p2.z) / 2;
+
+                traces.push({
+                    type: 'scatter3d', mode: 'text',
+                    x: [mx], y: [mz], z: [my + 0.25],
+                    text: ['+15 °C'], textfont: { color: '#c084fc', size: 11, weight: 'bold' },
+                    hoverinfo: 'none', showlegend: false
+                });
+            });
+        }
+
+        function renderModel() {
+            const selectedCase = document.getElementById('case-select').value;
+            const showNodes = document.getElementById('layer-nodes').checked;
+            const showSupports = document.getElementById('layer-supports').checked;
+            const showDiaphragm = document.getElementById('layer-diaphragm').checked;
+            const showLabels = document.getElementById('layer-labels').checked;
+
+            let traces = [];
+
+            // 1. Frame Members
+            elements.forEach(e => {
+                const p1 = nodes[e.n1], p2 = nodes[e.n2];
+                traces.push({
+                    type: 'scatter3d', mode: 'lines',
+                    x: [p1.x, p2.x], y: [p1.z, p2.z], z: [p1.y, p2.y],
+                    line: { color: '#8b5cf6', width: 5 }, hoverinfo: 'none', showlegend: false
+                });
+
+                if (showLabels) {
+                    const mx = (p1.x + p2.x) / 2, my = (p1.y + p2.y) / 2, mz = (p1.z + p2.z) / 2;
+                    traces.push({
+                        type: 'scatter3d', mode: 'text',
+                        x: [mx], y: [mz], z: [my],
+                        text: [`M${e.id}`], textfont: { color: '#6b21a8', size: 10, weight: 'bold' },
+                        hoverinfo: 'none', showlegend: false
+                    });
+                }
+            });
+
+            // 2. Nodes
+            if (showNodes) {
+                const keys = Object.keys(nodes);
+                traces.push({
+                    type: 'scatter3d', mode: 'markers+text',
+                    x: keys.map(k => nodes[k].x), y: keys.map(k => nodes[k].z), z: keys.map(k => nodes[k].y),
+                    marker: { size: 7, color: '#d946ef' },
+                    text: showLabels ? keys.map(k => `N${k}`) : [],
+                    textposition: 'top center', textfont: { color: '#be185d', size: 11, weight: 'bold' },
+                    hoverinfo: 'text', showlegend: false
+                });
+            }
+
+            // 3. Ground Boundary Supports
+            if (showSupports) {
+                [1, 2, 3, 4].forEach(k => {
+                    const p = nodes[k];
+                    traces.push({
+                        type: 'cone', x: [p.x], y: [p.z], z: [p.y - 0.35],
+                        u: [0], v: [0], w: [0.8], sizeref: 0.5,
+                        colorscale: [[0, '#a855f7'], [1, '#a855f7']], showscale: false, hoverinfo: 'none'
+                    });
+                });
+            }
+
+            // 4. Roof Diaphragm Constraints
+            if (showDiaphragm) {
+                const r = [5, 6, 7, 8, 5];
+                traces.push({
+                    type: 'scatter3d', mode: 'lines',
+                    x: r.map(k => nodes[k].x), y: r.map(k => nodes[k].z), z: r.map(k => nodes[k].y),
+                    line: { color: '#7c3aed', width: 2, dash: 'dash' },
+                    hoverinfo: 'none', showlegend: false
+                });
+
+                traces.push({
+                    type: 'scatter3d', mode: 'text',
+                    x: [3], y: [3], z: [6.2],
+                    text: ['ROOF DIAPHRAGM master N5'],
+                    textfont: { color: '#7c3aed', size: 10, weight: 'bold' },
+                    hoverinfo: 'none', showlegend: false
+                });
+            }
+
+            // 5. Active Load Case Visuals
+            updateLoadVisuals(selectedCase, traces);
+
+            const layout = {
+                paper_bgcolor: '#faf5ff',
+                plot_bgcolor: '#faf5ff',
+                margin: { l: 0, r: 0, b: 0, t: 0 },
+                scene: {
+                    aspectmode: 'data',
+                    xaxis: { title: '', color: '#6b21a8', gridcolor: '#e9d5ff', showbackground: true, backgroundcolor: '#faf5ff' },
+                    yaxis: { title: '', color: '#6b21a8', gridcolor: '#e9d5ff', showbackground: true, backgroundcolor: '#faf5ff' },
+                    zaxis: { title: '', color: '#6b21a8', gridcolor: '#e9d5ff', showbackground: false },
+                    camera: { eye: { x: 1.45, y: -1.45, z: 1.05 } }
+                }
+            };
+
+            Plotly.newPlot('plotly-div', traces, layout, { responsive: true, displayModeBar: false });
+        }
+
+        function updateLoadVisuals(caseKey, traces) {
+            const cardTitle = document.getElementById('load-card-title');
+            const cardDetails = document.getElementById('load-card-details');
+
+            if (caseKey === 'LC1') {
+                cardTitle.innerText = "Load Case 1 - DEAD / SELF WEIGHT [Dead]";
+                cardDetails.innerHTML = `
+                    <div class="legend-tag"><div class="legend-color-box" style="background: #0284c7;"></div> self weight: 0.3802, 0.4818 kN/m -Y</div>
+                    <div class="legend-tag"><div class="legend-color-box" style="background: #7c3aed;"></div> Diaphragm nodes (4)</div>
+                `;
+                addDistributedBeamsLoad(traces, '#0284c7');
+            } else if (caseKey === 'LC2') {
+                cardTitle.innerText = "Load Case 2 - ROOF DEAD [Dead]";
+                cardDetails.innerHTML = `
+                    <div class="legend-tag"><div class="legend-color-box" style="background: #ea580c;"></div> distributed: 5 kN/m -Y</div>
+                    <div class="legend-tag"><div class="legend-color-box" style="background: #7c3aed;"></div> Diaphragm nodes (4)</div>
+                `;
+                addDistributedBeamsLoad(traces, '#ea580c', 8, [5, 6, 7, 8]);
+            } else if (caseKey === 'LC3') {
+                cardTitle.innerText = "Load Case 3 - ROOF LIVE [Live]";
+                cardDetails.innerHTML = `
+                    <div class="legend-tag"><div class="legend-color-box" style="background: #ea580c;"></div> distributed: 3 kN/m -Y</div>
+                    <div class="legend-tag"><div class="legend-color-box" style="background: #7c3aed;"></div> Diaphragm nodes (4)</div>
+                `;
+                addDistributedBeamsLoad(traces, '#ea580c', 8, [5, 6, 7, 8]);
+            } else if (caseKey === 'LC4') {
+                cardTitle.innerText = "Load Case 4 - ROOF BEAM CENTER LOAD [Dead]";
+                cardDetails.innerHTML = `
+                    <div class="legend-tag"><div class="legend-color-box" style="background: #a855f7;"></div> point: 5 kN -Y</div>
+                    <div class="legend-tag"><div class="legend-color-box" style="background: #7c3aed;"></div> Diaphragm nodes (4)</div>
+                `;
+                addPointLoadsOnRoof(traces, '5.000 kN -Y', '#a855f7');
+            } else if (caseKey === 'LC5') {
+                cardTitle.innerText = "Load Case 5 - WIND X [Wind]";
+                cardDetails.innerHTML = `
+                    <div class="legend-tag"><div class="legend-color-box" style="background: #ef4444;"></div> nodal: 2.5 kN +X</div>
+                    <div class="legend-tag"><div class="legend-color-box" style="background: #7c3aed;"></div> Diaphragm nodes (4)</div>
+                `;
+                addNodalLoadsOnRoof(traces, 'X', '2.500 kN +X', '#ef4444');
+            } else if (caseKey === 'LC6') {
+                cardTitle.innerText = "Load Case 6 - WIND Z [Wind]";
+                cardDetails.innerHTML = `
+                    <div class="legend-tag"><div class="legend-color-box" style="background: #ef4444;"></div> nodal: 2.5 kN +Z</div>
+                    <div class="legend-tag"><div class="legend-color-box" style="background: #7c3aed;"></div> Diaphragm nodes (4)</div>
+                `;
+                addNodalLoadsOnRoof(traces, 'Z', '2.500 kN +Z', '#ef4444');
+            } else if (caseKey === 'LC7') {
+                cardTitle.innerText = "Load Case 7 - SEISMIC X [Seismic]";
+                cardDetails.innerHTML = `
+                    <div class="legend-tag"><div class="legend-color-box" style="background: #ef4444;"></div> nodal: 3.75 kN +X</div>
+                    <div class="legend-tag"><div class="legend-color-box" style="background: #7c3aed;"></div> Diaphragm nodes (4)</div>
+                `;
+                addNodalLoadsOnRoof(traces, 'X', '3.750 kN +X', '#ef4444');
+            } else if (caseKey === 'LC8') {
+                cardTitle.innerText = "Load Case 8 - SEISMIC Z [Seismic]";
+                cardDetails.innerHTML = `
+                    <div class="legend-tag"><div class="legend-color-box" style="background: #ef4444;"></div> nodal: 3.75 kN +Z</div>
+                    <div class="legend-tag"><div class="legend-color-box" style="background: #7c3aed;"></div> Diaphragm nodes (4)</div>
+                `;
+                addNodalLoadsOnRoof(traces, 'Z', '3.750 kN +Z', '#ef4444');
+            } else if (caseKey === 'LC9') {
+                cardTitle.innerText = "Load Case 9 - TEMPERATURE +15C [Temperature]";
+                cardDetails.innerHTML = `
+                    <div class="legend-tag"><div class="legend-color-box" style="background: #c084fc;"></div> temperature: +15 °C on 12 members</div>
+                    <div class="legend-tag"><div class="legend-color-box" style="background: #7c3aed;"></div> Diaphragm nodes (4)</div>
+                `;
+                addTemperatureLabels(traces);
+            } else if (caseKey === 'LRFD_1') {
+                cardTitle.innerText = "LRFD Combination 1 - 1.4D [LRFD]";
+                cardDetails.innerHTML = `
+                    <div class="legend-tag"><div class="legend-color-box" style="background: #ea580c;"></div> distributed: 7 kN/m -Y</div>
+                    <div class="legend-tag"><div class="legend-color-box" style="background: #d946ef;"></div> point: 7 kN -Y</div>
+                    <div class="legend-tag"><div class="legend-color-box" style="background: #0d9488;"></div> self weight: 0.5323, 0.6746 kN/m -Y</div>
+                    <div class="legend-tag"><div class="legend-color-box" style="background: #7c3aed;"></div> Diaphragm nodes (4)</div>
+                    <div style="margin-top: 8px; font-size: 9px; color: #a21caf; font-weight: 600;">
+                        <div>DEAD / SELF WEIGHT x 1.4</div>
+                        <div>ROOF DEAD x 1.4</div>
+                        <div>ROOF BEAM CENTER LOAD x 1.4</div>
+                    </div>
+                `;
+                addDistributedBeamsLoad(traces, '#ea580c', 8, [5, 6, 7, 8]);
+                addDistributedBeamsLoad(traces, '#0d9488', 8, [1, 2, 3, 4, 9, 10, 11, 12]);
+                addPointLoadsOnRoof(traces, '7.000 kN -Y', '#d946ef');
+            } else if (caseKey === 'ASD_13' || caseKey === 'ASD_15') {
+                const isASD15 = caseKey === 'ASD_15';
+                const labelTitle = isASD15 ? "ASD Combination 15 - D [ASD]" : "ASD Combination 13 - D [ASD]";
+                
+                cardTitle.innerText = labelTitle;
+                cardDetails.innerHTML = `
+                    <div class="legend-tag"><div class="legend-color-box" style="background: #ea580c;"></div> distributed: 5 kN/m -Y</div>
+                    <div class="legend-tag"><div class="legend-color-box" style="background: #d946ef;"></div> point: 5 kN -Y</div>
+                    <div class="legend-tag"><div class="legend-color-box" style="background: #0d9488;"></div> self weight: 0.3802, 0.4818 kN/m -Y</div>
+                    <div class="legend-tag"><div class="legend-color-box" style="background: #7c3aed;"></div> Diaphragm nodes (4)</div>
+                    <div style="margin-top: 8px; font-size: 9px; color: #a21caf; font-weight: 600;">
+                        <div>DEAD / SELF WEIGHT x 1</div>
+                        <div>ROOF DEAD x 1</div>
+                        <div>ROOF BEAM CENTER LOAD x 1</div>
+                    </div>
+                `;
+                addDistributedBeamsLoad(traces, '#ea580c', 8, [5, 6, 7, 8]);
+                addDistributedBeamsLoad(traces, '#0d9488', 8, [1, 2, 3, 4, 9, 10, 11, 12]);
+                addPointLoadsOnRoof(traces, '5.000 kN -Y', '#d946ef');
+            }
+        }
+
+        window.onload = renderModel;
+    </script>
+</body>
+</html>
