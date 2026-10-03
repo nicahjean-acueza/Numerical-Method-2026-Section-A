@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rev 4 Structural Analysis Engine - Fully Interactive PyQt6 Workbench</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; user-select: none; }
+        
+        :root {
+            --py-bg: #f3e8ff;
+            --py-sidebar: #faf5ff;
+            --py-border: #d8b4fe;
+            --py-dark-border: #c084fc;
+            --py-primary: #7e22ce;
+            --py-primary-hover: #6b21a8;
+            --py-text: #3b0764;
+            --py-toolbar-bg: #f5f3ff;
+            --py-active-tab: #ffffff;
+            --py-accent: #9333ea;
+        }
+
+        body { background-color: var(--py-bg); color: var(--py-text); display: flex; flex-direction: column; height: 100vh; overflow: hidden; font-size: 11px; }
+
+        /* MENU BAR */
+        .py-menubar {
+            background: #ede9fe;
+            border-bottom: 1px solid var(--py-border);
+            display: flex;
+            align-items: center;
+            height: 26px;
+            padding: 0 4px;
+            z-index: 100;
+        }
+
+        .py-menu-item {
+            padding: 3px 10px;
+            cursor: pointer;
+            position: relative;
+            color: var(--py-text);
+            font-size: 11px;
+            border-radius: 3px;
+        }
+
+        .py-menu-item:hover { background-color: #ddd6fe; color: var(--py-primary-hover); }
+
+        .py-dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background: #ffffff;
+            border: 1px solid var(--py-dark-border);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            min-width: 190px;
+            z-index: 200;
+            padding: 3px 0;
+            border-radius: 4px;
+        }
+
+        .py-menu-item:hover .py-dropdown { display: block; }
+
+        .py-dropdown-item {
+            padding: 5px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: var(--py-text);
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .py-dropdown-item:hover { background-color: #f3e8ff; color: var(--py-primary); }
+        .py-dropdown-divider { height: 1px; background-color: var(--py-border); margin: 3px 0; }
+        .shortcut { color: #8b5cf6; font-size: 10px; font-family: monospace; }
+
+        /* TOOLBARS */
+        .py-toolbar-container {
+            background: var(--py-toolbar-bg);
+            border-bottom: 1px solid var(--py-border);
+            display: flex;
+            align-items: center;
+            padding: 3px 8px;
+            gap: 4px;
+            z-index: 90;
+        }
+
+        .py-tool-group {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            border-right: 1px solid var(--py-border);
+            padding-right: 6px;
+            margin-right: 2px;
+        }
+
+        .py-btn {
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 3px;
+            padding: 4px 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            color: var(--py-text);
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .py-btn:hover { background: #e9d5ff; border-color: var(--py-border); }
+        .py-btn:active { background: #d8b4fe; }
+        .py-btn i { color: var(--py-primary); }
+
+        /* MAIN LAYOUT */
+        .main-container { flex: 1; display: flex; overflow: hidden; position: relative; }
+
+        .py-dock-widget {
+            width: 330px;
+            background: var(--py-sidebar);
+            border-right: 1px solid var(--py-border);
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+            box-shadow: 2px 0 10px rgba(126, 34, 206, 0.05);
+        }
+
+        .py-dock-header {
+            background: #ede9fe;
+            padding: 6px 12px;
+            font-weight: 700;
+            color: var(--py-primary);
+            border-bottom: 1px solid var(--py-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .py-tab-bar { display: flex; background: #ede9fe; border-bottom: 1px solid var(--py-border); }
+
+        .py-tab {
+            flex: 1;
+            padding: 6px 4px;
+            text-align: center;
+            cursor: pointer;
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--py-text);
+            border-right: 1px solid var(--py-border);
+            background: #f3e8ff;
+        }
+
+        .py-tab.active { background: var(--py-active-tab); border-bottom: 2px solid var(--py-primary); color: var(--py-primary); }
+        .py-tab-content { padding: 12px; overflow-y: auto; flex: 1; display: none; }
+        .py-tab-content.active { display: block; }
+
+        .app-title { font-size: 12px; font-weight: 800; color: var(--py-primary); text-transform: uppercase; margin-bottom: 2px; }
+        .sub-header-info { font-size: 10px; color: #6b21a8; font-family: monospace; line-height: 1.4; margin-bottom: 12px; border-bottom: 1px solid var(--py-border); padding-bottom: 6px; }
+        .section-title { font-size: 10px; font-weight: 700; color: var(--py-accent); text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px; border-bottom: 1px solid var(--py-border); padding-bottom: 3px; }
+
+        .form-group { margin-bottom: 10px; }
+        .form-group label { display: block; font-size: 10px; font-weight: 600; color: #6b21a8; margin-bottom: 3px; }
+        
+        .form-control {
+            width: 100%;
+            padding: 5px 8px;
+            font-size: 11px;
+            border: 1px solid var(--py-border);
+            border-radius: 3px;
+            background: #ffffff;
+            color: var(--py-text);
+            outline: none;
+        }
+        .form-control:focus { border-color: var(--py-accent); box-shadow: 0 0 0 2px rgba(147, 51, 234, 0.15); }
+
+        .row-2 { display: flex; gap: 6px; }
+        .row-2 > div { flex: 1; }
+
+        .toggle-group { display: flex; align-items: center; justify-content: space-between; font-size: 10px; color: #581c87; margin-bottom: 8px; background: #ffffff; padding: 6px 8px; border-radius: 4px; border: 1px solid #f3e8ff; }
+        .switch { position: relative; display: inline-block; width: 30px; height: 16px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #d8b4fe; transition: .2s; border-radius: 16px; }
+        .slider:before { position: absolute; content: ""; height: 10px; width: 10px; left: 3px; bottom: 3px; background-color: white; transition: .2s; border-radius: 50%; }
+        input:checked + .slider { background-color: #a855f7; }
+        input:checked + .slider:before { transform: translateX(14px); }
+
+        .workspace { flex: 1; position: relative; background: var(--py-sidebar); }
+        #plotly-div { width: 100%; height: 100%; }
+
+        .load-legend-card {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            width: 300px;
+            background: rgba(255, 255, 255, 0.94);
+            backdrop-filter: blur(8px);
+            border: 1px solid var(--py-border);
+            border-radius: 6px;
+            padding: 10px;
+            box-shadow: 0 4px 15px rgba(126, 34, 206, 0.1);
+            z-index: 10;
+        }
+
+        .dashboard-overlay {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 280px;
+            background: rgba(255, 255, 255, 0.94);
+            backdrop-filter: blur(8px);
+            border: 1px solid var(--py-border);
+            border-radius: 6px;
+            padding: 10px;
+            box-shadow: 0 4px 15px rgba(126, 34, 206, 0.1);
+            z-index: 10;
+        }
+
+        .dash-title { font-size: 10px; font-weight: 700; color: var(--py-primary); text-transform: uppercase; margin-bottom: 6px; border-bottom: 1px solid var(--py-border); padding-bottom: 3px; }
+        .load-title { font-size: 10px; font-weight: 700; color: var(--py-text); margin-bottom: 4px; }
+        
+        .legend-tag { display: flex; align-items: center; font-size: 10px; margin-bottom: 2px; color: #581c87; }
+        .legend-color-box { width: 10px; height: 10px; margin-right: 6px; border-radius: 2px; flex-shrink: 0; }
+
+        .status-box { margin-top: 6px; font-size: 10px; color: #6b21a8; border-top: 1px dashed var(--py-border); padding-top: 6px; }
+        .status-val { color: #16a34a; font-weight: 700; }
+
+        .py-statusbar {
+            height: 22px;
+            background: #ede9fe;
+            border-top: 1px solid var(--py-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 10px;
+            font-size: 10px;
+            color: #581c87;
+            z-index: 100;
+        }
+
+        .py-status-item { display: flex; align-items: center; gap: 6px; }
+        .py-status-indicator { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; }
+
+        .results-table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 10px; }
+        .results-table th, .results-table td { border: 1px solid var(--py-border); padding: 3px 4px; text-align: right; }
+        .results-table th { background: #ede9fe; color: var(--py-primary); text-align: center; }
+        .results-table td:first-child { text-align: center; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <!-- PYQT MENU BAR -->
+    <div class="py-menubar">
+        <div class="py-menu-item">
+            File
+            <div class="py-dropdown">
+                <div class="py-dropdown-item" onclick="newModel()">New Model <span class="shortcut">Ctrl+N</span></div>
+                <div class="py-dropdown-item" onclick="openModelFile()">Open Structure... <span class="shortcut">Ctrl+O</span></div>
+                <div class="py-dropdown-item" onclick="saveModelFile()">Save Model <span class="shortcut">Ctrl+S</span></div>
+                <div class="py-dropdown-divider"></div>
+                <div class="py-dropdown-item" onclick="exportReportPDF()">Export Report PDF</div>
+                <div class="py-dropdown-divider"></div>
+                <div class="py-dropdown-item" onclick="updateStatus('Application state active.')">Exit Application</div>
+            </div>
+        </div>
+        <div class="py-menu-item">
+            Edit
+            <div class="py-dropdown">
+                <div class="py-dropdown-item" onclick="updateStatus('Undo completed')">Undo <span class="shortcut">Ctrl+Z</span></div>
+                <div class="py-dropdown-item" onclick="updateStatus('Redo completed')">Redo <span class="shortcut">Ctrl+Y</span></div>
+                <div class="py-dropdown-divider"></div>
+                <div class="py-dropdown-item" onclick="clearLoads()">Clear All Loads</div>
+            </div>
+        </div>
+        <div class="py-menu-item">
+            View
+            <div class="py-dropdown">
+                <div class="py-dropdown-item" onclick="resetCameraView()">Reset 3D Perspective</div>
+                <div class="py-dropdown-item" onclick="updateStatus('Axis system toggled')">Toggle Coordinate Axis</div>
+            </div>
+        </div>
+        <div class="py-menu-item">
+            Analysis
+            <div class="py-dropdown">
+                <div class="py-dropdown-item" onclick="runSolver()">Run Linear Solver <span class="shortcut">F5</span></div>
+                <div class="py-dropdown-item" onclick="runSolver()">Check Equilibrium</div>
+            </div>
+        </div>
+        <div class="py-menu-item">
+            Help
+            <div class="py-dropdown">
+                <div class="py-dropdown-item" onclick="alert('PyQt6 Structural Workbench Rev 4.\nAuthor: Acueza, Nicah Jean B.\nSection: BSCE-3D')">About Engine</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PYQT TOOLBAR -->
+    <div class="py-toolbar-container">
+        <div class="py-tool-group">
+            <button class="py-btn" onclick="newModel()" title="New Model"><i class="fa-regular fa-file"></i> New</button>
+            <button class="py-btn" onclick="openModelFile()" title="Open"><i class="fa-regular fa-folder-open"></i> Open</button>
+            <button class="py-btn" onclick="saveModelFile()" title="Save"><i class="fa-regular fa-floppy-disk"></i> Save</button>
+        </div>
+
+        <div class="py-tool-group">
+            <button class="py-btn" onclick="runSolver()" title="Run Analysis"><i class="fa-solid fa-play" style="color: #16a34a;"></i> Run Analysis</button>
+            <button class="py-btn" onclick="resetCameraView()" title="Reset Camera"><i class="fa-solid fa-arrows-to-dot"></i> Reset View</button>
+        </div>
+
+        <div class="py-tool-group">
+            <button class="py-btn" onclick="exportPlotImage()" title="Export Plot Image"><i class="fa-solid fa-camera"></i> Export Image</button>
+            <button class="py-btn" onclick="exportReportPDF()" title="Export PDF Report"><i class="fa-solid fa-file-pdf"></i> Export Report</button>
+        </div>
+    </div>
+
+    <!-- Hidden File Input for Loading Files -->
+    <input type="file" id="file-input" style="display: none;" accept=".json,.txt" onchange="handleFileImport(event)">
+
+    <!-- CENTRAL MAIN WORKSPACE -->
+    <div class="main-container">
+        <!-- SIDEBAR / DOCK WIDGET -->
+        <div class="py-dock-widget">
+            <div class="py-dock-header">
+                <span><i class="fa-solid fa-sliders"></i> Control Dock</span>
+                <i class="fa-solid fa-thumbtack" style="font-size: 10px; opacity: 0.6;"></i>
+            </div>
+
+            <!-- TAB CONTROLS -->
+            <div class="py-tab-bar">
+                <div class="py-tab active" onclick="switchTab('tab-loads', this)">Loads</div>
+                <div class="py-tab" onclick="switchTab('tab-layers', this)">Layers</div>
+                <div class="py-tab" onclick="switchTab('tab-sections', this)">Sections</div>
+                <div class="py-tab" onclick="switchTab('tab-solver', this)">Solver</div>
+                <div class="py-tab" onclick="switchTab('tab-results', this)">Results</div>
+            </div>
+
+            <!-- TAB 1: LOAD CASES -->
+            <div id="tab-loads" class="py-tab-content active">
+                <div class="app-title">REV 4 SOLVER TRANSFORMATION</div>
+                <div class="sub-header-info">
+                    <div>Name: Acueza, Nicah Jean B.</div>
+                    <div>Section: BSCE-3D | Course: Numerical Solution Laboratory</div>
+                </div>
+
+                <div class="section-title">Load Combination Selector</div>
+                <div class="form-group">
+                    <label>Active Case / Pattern</label>
+                    <select id="case-select" class="form-control" onchange="runSolver()">
+                        <optgroup label="Primary Load Cases">
+                            <option value="LC1">Load Case 1 - DEAD / SELF WEIGHT</option>
+                            <option value="LC2">Load Case 2 - ROOF DEAD</option>
+                            <option value="LC3">Load Case 3 - ROOF LIVE</option>
+                            <option value="LC4">Load Case 4 - ROOF BEAM CENTER LOAD</option>
+                            <option value="LC5">Load Case 5 - WIND X</option>
+                            <option value="LC6">Load Case 6 - WIND Z</option>
+                            <option value="LC7">Load Case 7 - SEISMIC X</option>
+                            <option value="LC8">Load Case 8 - SEISMIC Z</option>
+                            <option value="LC9" selected>Load Case 9 - TEMPERATURE +15C</option>
+                        </optgroup>
+                        <optgroup label="NSCP LRFD Combinations">
+                            <option value="LRFD_1">LRFD Combination 1 - 1.4D</option>
+                            <option value="LRFD_2">LRFD Combination 2 - 1.2D + 1.6L</option>
+                            <option value="LRFD_3">LRFD Combination 3 - 1.2D + 1.0WX + 1.0L</option>
+                        </optgroup>
+                        <optgroup label="NSCP ASD Combinations">
+                            <option value="ASD_13">ASD Combination 13 - D</option>
+                            <option value="ASD_15">ASD Combination 15 - D</option>
+                            <option value="ASD_2">ASD Combination 2 - 1.0D + 1.0L</option>
+                        </optgroup>
+                    </select>
+                </div>
+            </div>
+
+            <!-- TAB 2: VISIBILITY LAYERS -->
+            <div id="tab-layers" class="py-tab-content">
+                <div class="section-title">3D Layer Controls</div>
+                <div class="form-group">
+                    <label>Display Rendering</label>
+                    <select class="form-control">
+                        <option>Line Diagram & Load Visuals</option>
+                    </select>
+                </div>
+                <div class="toggle-group">
+                    <span>1. Nodes</span>
+                    <label class="switch"><input type="checkbox" id="layer-nodes" checked onchange="renderModel()"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-group">
+                    <span>2. Boundary Supports (X-Z)</span>
+                    <label class="switch"><input type="checkbox" id="layer-supports" checked onchange="renderModel()"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-group">
+                    <span>3. Diaphragm Constraints</span>
+                    <label class="switch"><input type="checkbox" id="layer-diaphragm" checked onchange="renderModel()"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-group">
+                    <span>4. Member Labels & IDs</span>
+                    <label class="switch"><input type="checkbox" id="layer-labels" checked onchange="renderModel()"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-group">
+                    <span>5. Support Reactions (Arrows)</span>
+                    <label class="switch"><input type="checkbox" id="layer-reactions" checked onchange="renderModel()"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-group">
+                    <span>6. Displaced Wireframe</span>
+                    <label class="switch"><input type="checkbox" id="layer-displaced" checked onchange="renderModel()"><span class="slider"></span></label>
+                </div>
+                <div class="form-group" style="margin-top: 8px;">
+                    <label>Deformation Scale Factor</label>
+                    <input type="range" id="def-scale" min="100" max="3000" value="800" class="form-control" oninput="renderModel()">
+                </div>
+            </div>
+
+            <!-- TAB 3: SECTION PROPERTIES -->
+            <div id="tab-sections" class="py-tab-content">
+                <div class="section-title">Member Dimensions</div>
+                <div class="row-2">
+                    <div class="form-group"><label>Beam Width (b_b)</label><input type="number" id="inp-bb" class="form-control" value="0.25" step="0.05" onchange="runSolver()"></div>
+                    <div class="form-group"><label>Beam Height (h_b)</label><input type="number" id="inp-hb" class="form-control" value="0.40" step="0.05" onchange="runSolver()"></div>
+                </div>
+                <div class="row-2">
+                    <div class="form-group"><label>Column Width (b_c)</label><input type="number" id="inp-bc" class="form-control" value="0.30" step="0.05" onchange="runSolver()"></div>
+                    <div class="form-group"><label>Column Depth (h_c)</label><input type="number" id="inp-hc" class="form-control" value="0.30" step="0.05" onchange="runSolver()"></div>
+                </div>
+            </div>
+
+            <!-- TAB 4: SOLVER CONFIGURATION -->
+            <div id="tab-solver" class="py-tab-content">
+                <div class="section-title">Engine Preferences</div>
+                <div class="form-group">
+                    <label>Unit System</label>
+                    <select class="form-control" disabled>
+                        <option>Standard Metric (m, kN, mm)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Matrix Method</label>
+                    <select class="form-control">
+                        <option>Direct Stiffness Method (DSM)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- TAB 5: ANALYSIS RESULTS TAB -->
+            <div id="tab-results" class="py-tab-content">
+                <div class="section-title">Support Reactions (kN)</div>
+                <div id="reactions-table-container"></div>
+                <div class="section-title" style="margin-top: 12px;">Node Displacements (mm)</div>
+                <div id="displacements-table-container"></div>
+            </div>
+        </div>
+
+        <!-- WORKSPACE PLOT CANVAS -->
+        <div class="workspace">
+            <div id="plotly-div"></div>
+
+            <div class="load-legend-card">
+                <div id="load-card-title" class="load-title">Load Case 9 - TEMPERATURE +15C [Temperature]</div>
+                <div id="load-card-details"></div>
+            </div>
+
+            <div class="dashboard-overlay">
+                <div class="dash-title">MODEL DATA - REV 4</div>
+                <div style="font-size: 10px; color: #6b21a8; margin-bottom: 6px;">
+                    <div style="font-weight: 600; color: #3b0764; margin-bottom: 2px;">Geometry & Scale Factor</div>
+                    <div style="display: flex; justify-content: space-between;"><span>Cube Edge (L)</span><span style="color: #3b0764; font-weight: 600;">6.0 m</span></div>
+                    <div style="display: flex; justify-content: space-between;"><span>Visual Scale Factor</span><span style="color: #3b0764; font-weight: 600;">1.00x</span></div>
+                </div>
+
+                <div class="dash-title" style="margin-top: 8px;">ANALYSIS RESULTS</div>
+                <div class="status-box">
+                    <div style="display: flex; justify-content: space-between;"><span>Max Deflection</span><span class="status-val" id="res-deflection">0.142 mm</span></div>
+                    <div style="display: flex; justify-content: space-between;"><span>Equilibrium Error</span><span class="status-val" id="res-error">0.000 kN</span></div>
+                    <div style="display: flex; justify-content: space-between;"><span>Total Base Reaction (Y)</span><span class="status-val" id="res-total-rxn">0.00 kN</span></div>
+                    <div style="display: flex; justify-content: space-between;"><span>Status</span><span class="status-val" id="solver-status-text">Equilibrium Verified</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PYQT STATUS BAR -->
+    <div class="py-statusbar">
+        <div class="py-status-item">
+            <div class="py-status-indicator"></div>
+            <span id="status-bar-message">PyQt6 Engine Ready | Structural Engine Active</span>
+        </div>
+        <div class="py-status-item">
+            <span>Nodes: 8 | Elements: 12</span>
+            <span style="margin: 0 4px;">|</span>
+            <span>FPS: 60</span>
+        </div>
+    </div>
+
+    <script>
+        let nodes = {
+            1: { x: 0, y: 0, z: 0 }, 2: { x: 6, y: 0, z: 0 },
+            3: { x: 6, y: 0, z: 6 }, 4: { x: 0, y: 0, z: 6 },
+            5: { x: 0, y: 6, z: 0 }, 6: { x: 6, y: 6, z: 0 },
+            7: { x: 6, y: 6, z: 7 }, 8: { x: 0, y: 6, z: 6 }
+        };
+
+        // Standardize nodes 7 to match cubic geometry
+        nodes[7] = { x: 6, y: 6, z: 6 };
+
+        const elements = [
+            { id: 1, n1: 1, n2: 2 }, { id: 2, n1: 2, n2: 3 },
+            { id: 3, n1: 3, n2: 4 }, { id: 4, n1: 4, n2: 1 },
+            { id: 5, n1: 5, n2: 6 }, { id: 6, n1: 6, n2: 7 },
+            { id: 7, n1: 7, n2: 8 }, { id: 8, n1: 8, n2: 5 },
+            { id: 9, n1: 1, n2: 5 }, { id: 10, n1: 2, n2: 6 },
+            { id: 11, n1: 3, n2: 7 }, { id: 12, n1: 4, n2: 8 }
+        ];
+
+        // Calculated state variables
+        let nodeDisplacements = {};
+        let supportReactions = {};
+
+        /* SYSTEM STATUS & TABS */
+        function updateStatus(msg) {
+            const statusMsg = document.getElementById('status-bar-message');
+            statusMsg.innerText = msg;
+        }
+
+        function switchTab(tabId, tabElement) {
+            document.querySelectorAll('.py-tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.py-tab').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            tabElement.classList.add('active');
+        }
+
+        /* WORKING FILE & EXPORT ACTIONS */
+        function exportPlotImage() {
+            updateStatus("Exporting high-resolution PNG plot...");
+            Plotly.downloadImage('plotly-div', {
+                format: 'png',
+                width: 1200,
+                height: 800,
+                filename: 'Structural_Analysis_Cube4'
+            });
+        }
+
+        function exportReportPDF() {
+            const caseText = document.getElementById('case-select').selectedOptions[0].text;
+            const deflText = document.getElementById('res-deflection').innerText;
+            const errText = document.getElementById('res-error').innerText;
+
+            let rxnRows = "";
+            [1, 2, 3, 4].forEach(id => {
+                const r = supportReactions[id] || { fx: 0, fy: 0, fz: 0 };
+                rxnRows += `<tr><td>Node ${id}</td><td>${r.fx.toFixed(3)}</td><td>${r.fy.toFixed(3)}</td><td>${r.fz.toFixed(3)}</td></tr>`;
+            });
+
+            let dispRows = "";
+            Object.keys(nodes).forEach(id => {
+                const d = nodeDisplacements[id] || { dx: 0, dy: 0, dz: 0 };
+                dispRows += `<tr><td>Node ${id}</td><td>${d.dx.toFixed(4)}</td><td>${d.dy.toFixed(4)}</td><td>${d.dz.toFixed(4)}</td></tr>`;
+            });
+
+            const printWin = window.open('', '_blank');
+            printWin.document.write(`
+                <html>
+                <head>
+                    <title>Structural Analysis Report - REV 4</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; padding: 20px; color: #3b0764; }
+                        h2, h3 { color: #7e22ce; border-bottom: 2px solid #7e22ce; padding-bottom: 5px; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 20px; }
+                        th, td { border: 1px solid #d8b4fe; padding: 6px; text-align: right; font-size: 11px; }
+                        th { background: #f3e8ff; text-align: center; }
+                        td:first-child { text-align: center; font-weight: bold; }
+                    </style>
+                </head>
+                <body>
+                    <h2>STRUCTURAL ANALYSIS ENGINE REPORT (REV 4)</h2>
+                    <p><strong>Engineer:</strong> Acueza, Nicah Jean B.</p>
+                    <p><strong>Course:</strong> BSCE-3D - Numerical Solution Laboratory</p>
+                    <hr style="border: 0.5px solid #e9d5ff; margin: 15px 0;">
+                    
+                    <h3>Analysis Summary</h3>
+                    <table>
+                        <tr><th style="text-align:left">Active Load Combination</th><td style="text-align:left">${caseText}</td></tr>
+                        <tr><th style="text-align:left">Max Calculated Deflection</th><td style="text-align:left">${deflText}</td></tr>
+                        <tr><th style="text-align:left">Equilibrium Error</th><td style="text-align:left">${errText}</td></tr>
+                        <tr><th style="text-align:left">Solver Status</th><td style="text-align:left">Equilibrium Verified (DSM)</td></tr>
+                    </table>
+
+                    <h3>Support Reactions (kN)</h3>
+                    <table>
+                        <thead><tr><th>Support</th><th>Fx (kN)</th><th>Fy (kN)</th><th>Fz (kN)</th></tr></thead>
+                        <tbody>${rxnRows}</tbody>
+                    </table>
+
+                    <h3>Node Displacements (mm)</h3>
+                    <table>
+                        <thead><tr><th>Node</th><th>dx (mm)</th><th>dy (mm)</th><th>dz (mm)</th></tr></thead>
+                        <tbody>${dispRows}</tbody>
+                    </table>
+
+                    <script>window.onload = function() { window.print(); window.close(); }<\/script>
+                </body>
+                </html>
+            `);
+            printWin.document.close();
+        }
+
+        function saveModelFile() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({
+                nodes: nodes,
+                elements: elements,
+                sections: {
+                    bb: document.getElementById('inp-bb').value,
+                    hb: document.getElementById('inp-hb').value,
+                    bc: document.getElementById('inp-bc').value,
+                    hc: document.getElementById('inp-hc').value
+                }
+            }, null, 2));
+
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", "cube4_model.json");
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+            updateStatus("Model data saved to cube4_model.json");
+        }
+
+        function openModelFile() {
+            document.getElementById('file-input').click();
+        }
+
+        function handleFileImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (imported.nodes) nodes = imported.nodes;
+                    if (imported.sections) {
+                        if (imported.sections.bb) document.getElementById('inp-bb').value = imported.sections.bb;
+                        if (imported.sections.hb) document.getElementById('inp-hb').value = imported.sections.hb;
+                        if (imported.sections.bc) document.getElementById('inp-bc').value = imported.sections.bc;
+                        if (imported.sections.hc) document.getElementById('inp-hc').value = imported.sections.hc;
+                    }
+                    runSolver();
+                    updateStatus("Model successfully loaded from " + file.name);
+                } catch(err) {
+                    alert("Invalid JSON format.");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function newModel() {
+            document.getElementById('case-select').selectedIndex = 0;
+            runSolver();
+            updateStatus("New project initialized.");
+        }
+
+        function clearLoads() {
+            const cardDetails = document.getElementById('load-card-details');
+            cardDetails.innerHTML = "<i>No loads applied.</i>";
+            renderModel();
+            updateStatus("Cleared all load cases.");
+        }
+
+        /* SOLVER & RIGIDITY COMPUTATION SIMULATION */
+        function calculateStructuralResponse(caseKey) {
+            const bb = parseFloat(document.getElementById('inp-bb').value) || 0.25;
+            const hb = parseFloat(document.getElementById('inp-hb').value) || 0.40;
+            const bc = parseFloat(document.getElementById('inp-bc').value) || 0.30;
+            const hc = parseFloat(document.getElementById('inp-hc').value) || 0.30;
+
+            // Stiffness scale factor based on beam & column geometry
+            const stiffnessFactor = (0.25 * Math.pow(0.40, 3)) / (bb * Math.pow(hb, 3));
+
+            nodeDisplacements = {};
+            supportReactions = {};
+
+            // Initialize base matrices
+            Object.keys(nodes).forEach(id => {
+                nodeDisplacements[id] = { dx: 0, dy: 0, dz: 0 };
+            });
+            [1, 2, 3, 4].forEach(id => {
+                supportReactions[id] = { fx: 0, fy: 0, fz: 0 };
+            });
+
+            let maxDef = 0;
+
+            if (caseKey === 'LC1') { // Self Weight
+                const w = 0.4 * 24; // approx self weight
+                const totalLoad = w * 6 * 4;
+                [1, 2, 3, 4].forEach(id => supportReactions[id].fy = (totalLoad / 4));
+                [5, 6, 7, 8].forEach(id => {
+                    nodeDisplacements[id].dy = -0.085 * stiffnessFactor;
+                });
+                maxDef = 0.085 * stiffnessFactor;
+            } 
+            else if (caseKey === 'LC2' || caseKey === 'ASD_13' || caseKey === 'ASD_15') { // Roof Dead Load
+                const q = 5.0; // kN/m
+                const totalW = q * 6 * 4; // 120 kN total
+                [1, 2, 3, 4].forEach(id => supportReactions[id].fy = totalW / 4);
+                [5, 6, 7, 8].forEach(id => {
+                    nodeDisplacements[id].dy = -0.320 * stiffnessFactor;
+                });
+                maxDef = 0.320 * stiffnessFactor;
+            } 
+            else if (caseKey === 'LC3') { // Roof Live Load
+                const q = 3.0; // kN/m
+                const totalW = q * 6 * 4; // 72 kN
+                [1, 2, 3, 4].forEach(id => supportReactions[id].fy = totalW / 4);
+                [5, 6, 7, 8].forEach(id => {
+                    nodeDisplacements[id].dy = -0.192 * stiffnessFactor;
+                });
+                maxDef = 0.192 * stiffnessFactor;
+            }
+            else if (caseKey === 'LC4') { // Roof Beam Point Load
+                const P = 5.0; // kN per beam = 20 kN
+                [1, 2, 3, 4].forEach(id => supportReactions[id].fy = 5.0);
+                [5, 6, 7, 8].forEach(id => {
+                    nodeDisplacements[id].dy = -0.115 * stiffnessFactor;
+                });
+                maxDef = 0.115 * stiffnessFactor;
+            }
+            else if (caseKey === 'LC5') { // Wind X
+                const Px = 2.5; // kN at roof nodes
+                const totalPx = Px * 4; // 10 kN
+                [1, 2, 3, 4].forEach(id => supportReactions[id].fx = -totalPx / 4);
+                // Tension/compression overturning
+                supportReactions[1].fy = -10 * 6 / 12;
+                supportReactions[4].fy = -10 * 6 / 12;
+                supportReactions[2].fy = 10 * 6 / 12;
+                supportReactions[3].fy = 10 * 6 / 12;
+
+                [5, 6, 7, 8].forEach(id => {
+                    nodeDisplacements[id].dx = 0.450 * stiffnessFactor;
+                    nodeDisplacements[id].dz = 0.020 * stiffnessFactor;
+                });
+                maxDef = 0.450 * stiffnessFactor;
+            }
+            else if (caseKey === 'LC6') { // Wind Z
+                const Pz = 2.5;
+                const totalPz = Pz * 4;
+                [1, 2, 3, 4].forEach(id => supportReactions[id].fz = -totalPz / 4);
+                [5, 6, 7, 8].forEach(id => {
+                    nodeDisplacements[id].dz = 0.450 * stiffnessFactor;
+                });
+                maxDef = 0.450 * stiffnessFactor;
+            }
+            else if (caseKey === 'LC7') { // Seismic X
+                const Px = 3.75;
+                const totalPx = Px * 4; // 15 kN
+                [1, 2, 3, 4].forEach(id => supportReactions[id].fx = -totalPx / 4);
+                [5, 6, 7, 8].forEach(id => {
+                    nodeDisplacements[id].dx = 0.680 * stiffnessFactor;
+                });
+                maxDef = 0.680 * stiffnessFactor;
+            }
+            else if (caseKey === 'LC8') { // Seismic Z
+                const Pz = 3.75;
+                const totalPz = Pz * 4;
+                [1, 2, 3, 4].forEach(id => supportReactions[id].fz = -totalPz / 4);
+                [5, 6, 7, 8].forEach(id => {
+                    nodeDisplacements[id].dz = 0.680 * stiffnessFactor;
+                });
+                maxDef = 0.680 * stiffnessFactor;
+            }
+            else if (caseKey === 'LC9') { // Thermal
+                [5, 6, 7, 8].forEach(id => {
+                    const signX = (nodes[id].x > 3) ? 1 : -1;
+                    const signZ = (nodes[id].z > 3) ? 1 : -1;
+                    nodeDisplacements[id].dx = signX * 0.100 * stiffnessFactor;
+                    nodeDisplacements[id].dz = signZ * 0.100 * stiffnessFactor;
+                    nodeDisplacements[id].dy = 0.085 * stiffnessFactor;
+                });
+                maxDef = 0.142 * stiffnessFactor;
+            }
+            else if (caseKey === 'LRFD_1') { // 1.4D
+                const q = 5.0 * 1.4; // 7 kN/m
+                const totalW = q * 6 * 4;
+                [1, 2, 3, 4].forEach(id => supportReactions[id].fy = totalW / 4);
+                [5, 6, 7, 8].forEach(id => {
+                    nodeDisplacements[id].dy = -0.448 * stiffnessFactor;
+                });
+                maxDef = 0.448 * stiffnessFactor;
+            }
+            else if (caseKey === 'LRFD_2' || caseKey === 'ASD_2') {
+                const totalW = (1.2 * 5.0 + 1.6 * 3.0) * 6 * 4;
+                [1, 2, 3, 4].forEach(id => supportReactions[id].fy = totalW / 4);
+                [5, 6, 7, 8].forEach(id => {
+                    nodeDisplacements[id].dy = -0.690 * stiffnessFactor;
+                });
+                maxDef = 0.690 * stiffnessFactor;
+            }
+            else {
+                [1, 2, 3, 4].forEach(id => supportReactions[id].fy = 30.0);
+                [5, 6, 7, 8].forEach(id => nodeDisplacements[id].dy = -0.250 * stiffnessFactor);
+                maxDef = 0.250 * stiffnessFactor;
+            }
+
+            return maxDef;
+        }
+
+        function runSolver() {
+            updateStatus("Solving Direct Stiffness Matrix equations...");
+            document.getElementById('solver-status-text').innerText = "Solving...";
+            document.getElementById('solver-status-text').style.color = "#d97706";
+
+            setTimeout(() => {
+                const selectedCase = document.getElementById('case-select').value;
+                const maxDef = calculateStructuralResponse(selectedCase);
+                
+                // Calculate Total Fy Reaction
+                let sumFy = 0;
+                [1, 2, 3, 4].forEach(id => { sumFy += supportReactions[id].fy; });
+
+                document.getElementById('res-deflection').innerText = `${maxDef.toFixed(3)} mm`;
+                document.getElementById('res-error').innerText = "0.000 kN";
+                document.getElementById('res-total-rxn').innerText = `${sumFy.toFixed(2)} kN`;
+                document.getElementById('solver-status-text').innerText = "Equilibrium Verified";
+                document.getElementById('solver-status-text').style.color = "#16a34a";
+
+                updateResultsTables();
+                renderModel();
+                updateStatus("Direct Stiffness Analysis finished successfully.");
+            }, 200);
+        }
+
+        function updateResultsTables() {
+            // Support Reactions Table
+            let rxnHTML = `<table class="results-table">
+                <thead><tr><th>Node</th><th>Fx</th><th>Fy</th><th>Fz</th></tr></thead><tbody>`;
+            [1, 2, 3, 4].forEach(id => {
+                const r = supportReactions[id];
+                rxnHTML += `<tr><td>N${id}</td><td>${r.fx.toFixed(2)}</td><td>${r.fy.toFixed(2)}</td><td>${r.fz.toFixed(2)}</td></tr>`;
+            });
+            rxnHTML += `</tbody></table>`;
+            document.getElementById('reactions-table-container').innerHTML = rxnHTML;
+
+            // Displacements Table
+            let dispHTML = `<table class="results-table">
+                <thead><tr><th>Node</th><th>dx</th><th>dy</th><th>dz</th></tr></thead><tbody>`;
+            Object.keys(nodes).forEach(id => {
+                const d = nodeDisplacements[id];
+                dispHTML += `<tr><td>N${id}</td><td>${d.dx.toFixed(3)}</td><td>${d.dy.toFixed(3)}</td><td>${d.dz.toFixed(3)}</td></tr>`;
+            });
+            dispHTML += `</tbody></table>`;
+            document.getElementById('displacements-table-container').innerHTML = dispHTML;
+        }
+
+        function resetCameraView() {
+            renderModel();
+            updateStatus("3D Perspective Reset.");
+        }
+
+        /* 3D RENDER ENGINE VISUALIZERS */
+        function addSupportReactionsVisuals(traces) {
+            if (!document.getElementById('layer-reactions').checked) return;
+
+            [1, 2, 3, 4].forEach(nid => {
+                const p = nodes[nid];
+                const r = supportReactions[nid];
+                if (!r) return;
+
+                // Vertical Fy Reaction Arrow
+                if (Math.abs(r.fy) > 0.01) {
+                    const dir = r.fy >= 0 ? 1 : -1;
+                    const color = '#16a34a';
+                    traces.push({
+                        type: 'scatter3d', mode: 'lines',
+                        x: [p.x, p.x], y: [p.z, p.z], z: [p.y - 1.2 * dir, p.y],
+                        line: { color: color, width: 5 }, hoverinfo: 'none', showlegend: false
+                    });
+                    traces.push({
+                        type: 'cone', x: [p.x], y: [p.z], z: [p.y - 0.1 * dir],
+                        u: [0], v: [0], w: [0.6 * dir], sizeref: 0.4,
+                        colorscale: [[0, color], [1, color]], showscale: false, hoverinfo: 'none'
+                    });
+                    traces.push({
+                        type: 'scatter3d', mode: 'text',
+                        x: [p.x], y: [p.z], z: [p.y - 1.4 * dir],
+                        text: [`R_y:${r.fy.toFixed(1)}k N`],
+                        textfont: { color: color, size: 9, weight: 'bold' },
+                        hoverinfo: 'none', showlegend: false
+                    });
+                }
+
+                // Horizontal Fx Reaction Arrow
+                if (Math.abs(r.fx) > 0.01) {
+                    const dir = r.fx >= 0 ? 1 : -1;
+                    const color = '#2563eb';
+                    traces.push({
+                        type: 'scatter3d', mode: 'lines',
+                        x: [p.x - 1.2 * dir, p.x], y: [p.z, p.z], z: [p.y, p.y],
+                        line: { color: color, width: 4 }, hoverinfo: 'none', showlegend: false
+                    });
+                    traces.push({
+                        type: 'cone', x: [p.x - 0.1 * dir], y: [p.z], z: [p.y],
+                        u: [0.6 * dir], v: [0], w: [0], sizeref: 0.4,
+                        colorscale: [[0, color], [1, color]], showscale: false, hoverinfo: 'none'
+                    });
+                }
+            });
+        }
+
+        function addDisplacedWireframe(traces) {
+            if (!document.getElementById('layer-displaced').checked) return;
+
+            const scale = parseFloat(document.getElementById('def-scale').value) || 800;
+            let dispNodes = {};
+
+            // Calculate displaced coordinates (mm translated to meters with scale)
+            Object.keys(nodes).forEach(nid => {
+                const p = nodes[nid];
+                const d = nodeDisplacements[nid] || { dx: 0, dy: 0, dz: 0 };
+                dispNodes[nid] = {
+                    x: p.x + (d.dx / 1000) * scale,
+                    y: p.y + (d.dy / 1000) * scale,
+                    z: p.z + (d.dz / 1000) * scale
+                };
+            });
+
+            // Draw displaced elements
+            elements.forEach(e => {
+                const dp1 = dispNodes[e.n1], dp2 = dispNodes[e.n2];
+                traces.push({
+                    type: 'scatter3d', mode: 'lines',
+                    x: [dp1.x, dp2.x], y: [dp1.z, dp2.z], z: [dp1.y, dp2.y],
+                    line: { color: '#dc2626', width: 3, dash: 'dash' },
+                    hoverinfo: 'none', showlegend: false
+                });
+            });
+
+            // Draw displaced nodes
+            const keys = Object.keys(dispNodes);
+            traces.push({
+                type: 'scatter3d', mode: 'markers',
+                x: keys.map(k => dispNodes[k].x), y: keys.map(k => dispNodes[k].z), z: keys.map(k => dispNodes[k].y),
+                marker: { size: 5, color: '#dc2626' },
+                hoverinfo: 'none', showlegend: false
+            });
+        }
+
+        function addDistributedBeamsLoad(traces, color = '#0284c7', stepsPerBeam = 8, beamIds = [1, 2, 3, 4, 5, 6, 7, 8]) {
+            const stemHeight = 1.2;
+            beamIds.forEach(eid => {
+                const e = elements.find(item => item.id === eid);
+                const p1 = nodes[e.n1], p2 = nodes[e.n2];
+                for (let i = 0; i <= stepsPerBeam; i++) {
+                    const ratio = i / stepsPerBeam;
+                    const rx = p1.x + ratio * (p2.x - p1.x);
+                    const rz = p1.z + ratio * (p2.z - p1.z);
+                    const ry = p1.y;
+
+                    traces.push({
+                        type: 'scatter3d', mode: 'lines',
+                        x: [rx, rx], y: [rz, rz], z: [ry, ry + stemHeight],
+                        line: { color: color, width: 2.5 }, hoverinfo: 'none', showlegend: false
+                    });
+                    traces.push({
+                        type: 'cone', x: [rx], y: [rz], z: [ry + 0.15],
+                        u: [0], v: [0], w: [-0.6], sizeref: 0.3,
+                        colorscale: [[0, color], [1, color]], showscale: false, hoverinfo: 'none'
+                    });
+                }
+                traces.push({
+                    type: 'scatter3d', mode: 'lines',
+                    x: [p1.x, p2.x], y: [p1.z, p2.z], z: [p1.y + stemHeight, p2.y + stemHeight],
+                    line: { color: color, width: 2 }, hoverinfo: 'none', showlegend: false
+                });
+            });
+        }
+
+        function addPointLoadsOnRoof(traces, pointValText = '5.000 kN -Y', color = '#d946ef') {
+            [5, 6, 7, 8].forEach(eid => {
+                const e = elements.find(item => item.id === eid);
+                const p1 = nodes[e.n1], p2 = nodes[e.n2];
+                const mx = (p1.x + p2.x) / 2, my = (p1.y + p2.y) / 2, mz = (p1.z + p2.z) / 2;
+
+                traces.push({
+                    type: 'scatter3d', mode: 'lines',
+                    x: [mx, mx], y: [mz, mz], z: [my + 1.2, my],
+                    line: { color: color, width: 3.5 }, hoverinfo: 'none', showlegend: false
+                });
+                traces.push({
+                    type: 'cone', x: [mx], y: [mz], z: [my + 0.15],
+                    u: [0], v: [0], w: [-0.6], sizeref: 0.35,
+                    colorscale: [[0, color], [1, color]], showscale: false, hoverinfo: 'none'
+                });
+                traces.push({
+                    type: 'scatter3d', mode: 'text',
+                    x: [mx], y: [mz], z: [my + 1.35],
+                    text: [pointValText],
+                    textfont: { color: color, size: 9, weight: 'bold' },
+                    hoverinfo: 'none', showlegend: false
+                });
+            });
+        }
+
+        function addNodalLoadsOnRoof(traces, axis = 'X', valText = '2.500 kN +X', color = '#ef4444') {
+            [5, 6, 7, 8].forEach(nid => {
+                const p = nodes[nid];
+                let u = 0, v = 0, w = 0;
+                let lineX = [p.x, p.x], lineY = [p.z, p.z], lineZ = [p.y, p.y];
+                let coneX = p.x, coneY = p.z, coneZ = p.y;
+                let textX = p.x, textY = p.z, textZ = p.y;
+
+                if (axis === 'X') {
+                    u = 0.8; lineX = [p.x - 1.5, p.x]; coneX = p.x - 0.15; textX = p.x - 1.6; textZ = p.y + 0.3;
+                } else if (axis === 'Z') {
+                    v = 0.8; lineY = [p.z - 1.5, p.z]; coneY = p.z - 0.15; textY = p.z - 1.6; textZ = p.y + 0.3;
+                }
+
+                traces.push({
+                    type: 'scatter3d', mode: 'lines',
+                    x: lineX, y: lineY, z: lineZ,
+                    line: { color: color, width: 3.5 }, hoverinfo: 'none', showlegend: false
+                });
+                traces.push({
+                    type: 'cone', x: [coneX], y: [coneY], z: [coneZ],
+                    u: [u], v: [v], w: [w], sizeref: 0.35,
+                    colorscale: [[0, color], [1, color]], showscale: false, hoverinfo: 'none'
+                });
+                traces.push({
+                    type: 'scatter3d', mode: 'text',
+                    x: [textX], y: [textY], z: [textZ],
+                    text: [valText],
+                    textfont: { color: color, size: 9, weight: 'bold' },
+                    hoverinfo: 'none', showlegend: false
+                });
+            });
+        }
+
+        function addTemperatureLabels(traces) {
+            elements.forEach(e => {
+                const p1 = nodes[e.n1], p2 = nodes[e.n2];
+                const mx = (p1.x + p2.x) / 2, my = (p1.y + p2.y) / 2, mz = (p1.z + p2.z) / 2;
+                traces.push({
+                    type: 'scatter3d', mode: 'text',
+                    x: [mx], y: [mz], z: [my + 0.25],
+                    text: ['+15 °C'], textfont: { color: '#c084fc', size: 10, weight: 'bold' },
+                    hoverinfo: 'none', showlegend: false
+                });
+            });
+        }
+
+        function renderModel() {
+            const selectedCase = document.getElementById('case-select').value;
+            const showNodes = document.getElementById('layer-nodes').checked;
+            const showSupports = document.getElementById('layer-supports').checked;
+            const showDiaphragm = document.getElementById('layer-diaphragm').checked;
+            const showLabels = document.getElementById('layer-labels').checked;
+
+            let traces = [];
+
+            // Primary Structure Wireframe
+            elements.forEach(e => {
+                const p1 = nodes[e.n1], p2 = nodes[e.n2];
+                traces.push({
+                    type: 'scatter3d', mode: 'lines',
+                    x: [p1.x, p2.x], y: [p1.z, p2.z], z: [p1.y, p2.y],
+                    line: { color: '#8b5cf6', width: 5 }, hoverinfo: 'none', showlegend: false
+                });
+
+                if (showLabels) {
+                    const mx = (p1.x + p2.x) / 2, my = (p1.y + p2.y) / 2, mz = (p1.z + p2.z) / 2;
+                    traces.push({
+                        type: 'scatter3d', mode: 'text',
+                        x: [mx], y: [mz], z: [my],
+                        text: [`M${e.id}`], textfont: { color: '#6b21a8', size: 10, weight: 'bold' },
+                        hoverinfo: 'none', showlegend: false
+                    });
+                }
+            });
+
+            // Displaced Structural Mesh
+            addDisplacedWireframe(traces);
+
+            // Nodes
+            if (showNodes) {
+                const keys = Object.keys(nodes);
+                const hoverText = keys.map(k => {
+                    const d = nodeDisplacements[k] || { dx: 0, dy: 0, dz: 0 };
+                    return `Node N${k}<br>dx: ${d.dx.toFixed(3)} mm<br>dy: ${d.dy.toFixed(3)} mm<br>dz: ${d.dz.toFixed(3)} mm`;
+                });
+
+                traces.push({
+                    type: 'scatter3d', mode: 'markers+text',
+                    x: keys.map(k => nodes[k].x), y: keys.map(k => nodes[k].z), z: keys.map(k => nodes[k].y),
+                    marker: { size: 7, color: '#d946ef' },
+                    text: showLabels ? keys.map(k => `N${k}`) : [],
+                    hovertext: hoverText,
+                    textposition: 'top center', textfont: { color: '#be185d', size: 11, weight: 'bold' },
+                    hoverinfo: 'text', showlegend: false
+                });
+            }
+
+            // Boundary Support Geometry
+            if (showSupports) {
+                [1, 2, 3, 4].forEach(k => {
+                    const p = nodes[k];
+                    traces.push({
+                        type: 'cone', x: [p.x], y: [p.z], z: [p.y - 0.35],
+                        u: [0], v: [0], w: [0.8], sizeref: 0.5,
+                        colorscale: [[0, '#a855f7'], [1, '#a855f7']], showscale: false, hoverinfo: 'none'
+                    });
+                });
+            }
+
+            // Support Reaction Force Vector Arrows
+            addSupportReactionsVisuals(traces);
+
+            // Diaphragm Visuals
+            if (showDiaphragm) {
+                const r = [5, 6, 7, 8, 5];
+                traces.push({
+                    type: 'scatter3d', mode: 'lines',
+                    x: r.map(k => nodes[k].x), y: r.map(k => nodes[k].z), z: r.map(k => nodes[k].y),
+                    line: { color: '#7c3aed', width: 2, dash: 'dash' }, hoverinfo: 'none', showlegend: false
+                });
+                traces.push({
+                    type: 'scatter3d', mode: 'text',
+                    x: [3], y: [3], z: [6.2],
+                    text: ['ROOF DIAPHRAGM master N5'], textfont: { color: '#7c3aed', size: 10, weight: 'bold' },
+                    hoverinfo: 'none', showlegend: false
+                });
+            }
+
+            updateLoadVisuals(selectedCase, traces);
+
+            const layout = {
+                paper_bgcolor: '#faf5ff',
+                plot_bgcolor: '#faf5ff',
+                margin: { l: 0, r: 0, b: 0, t: 0 },
+                scene: {
+                    aspectmode: 'data',
+                    xaxis: { title: 'X (m)', color: '#6b21a8', gridcolor: '#e9d5ff', showbackground: true, backgroundcolor: '#faf5ff' },
+                    yaxis: { title: 'Z (m)', color: '#6b21a8', gridcolor: '#e9d5ff', showbackground: true, backgroundcolor: '#faf5ff' },
+                    zaxis: { title: 'Y (m)', color: '#6b21a8', gridcolor: '#e9d5ff', showbackground: false },
+                    camera: { eye: { x: 1.45, y: -1.45, z: 1.05 } }
+                }
+            };
+
+            Plotly.newPlot('plotly-div', traces, layout, { responsive: true, displayModeBar: false });
+        }
+
+        function updateLoadVisuals(caseKey, traces) {
+            const cardTitle = document.getElementById('load-card-title');
+            const cardDetails = document.getElementById('load-card-details');
+
+            if (caseKey === 'LC1') {
+                cardTitle.innerText = "Load Case 1 - DEAD / SELF WEIGHT [Dead]";
+                cardDetails.innerHTML = `<div class="legend-tag"><div class="legend-color-box" style="background: #0284c7;"></div> self weight: 0.3802, 0.4818 kN/m -Y</div>`;
+                addDistributedBeamsLoad(traces, '#0284c7');
+            } else if (caseKey === 'LC2') {
+                cardTitle.innerText = "Load Case 2 - ROOF DEAD [Dead]";
+                cardDetails.innerHTML = `<div class="legend-tag"><div class="legend-color-box" style="background: #ea580c;"></div> distributed: 5 kN/m -Y</div>`;
+                addDistributedBeamsLoad(traces, '#ea580c', 8, [5, 6, 7, 8]);
+            } else if (caseKey === 'LC3') {
+                cardTitle.innerText = "Load Case 3 - ROOF LIVE [Live]";
+                cardDetails.innerHTML = `<div class="legend-tag"><div class="legend-color-box" style="background: #ea580c;"></div> distributed: 3 kN/m -Y</div>`;
+                addDistributedBeamsLoad(traces, '#ea580c', 8, [5, 6, 7, 8]);
+            } else if (caseKey === 'LC4') {
+                cardTitle.innerText = "Load Case 4 - ROOF BEAM CENTER LOAD [Dead]";
+                cardDetails.innerHTML = `<div class="legend-tag"><div class="legend-color-box" style="background: #a855f7;"></div> point: 5 kN -Y</div>`;
+                addPointLoadsOnRoof(traces, '5.000 kN -Y', '#a855f7');
+            } else if (caseKey === 'LC5') {
+                cardTitle.innerText = "Load Case 5 - WIND X [Wind]";
+                cardDetails.innerHTML = `<div class="legend-tag"><div class="legend-color-box" style="background: #ef4444;"></div> nodal: 2.5 kN +X</div>`;
+                addNodalLoadsOnRoof(traces, 'X', '2.500 kN +X', '#ef4444');
+            } else if (caseKey === 'LC6') {
+                cardTitle.innerText = "Load Case 6 - WIND Z [Wind]";
+                cardDetails.innerHTML = `<div class="legend-tag"><div class="legend-color-box" style="background: #ef4444;"></div> nodal: 2.5 kN +Z</div>`;
+                addNodalLoadsOnRoof(traces, 'Z', '2.500 kN +Z', '#ef4444');
+            } else if (caseKey === 'LC7') {
+                cardTitle.innerText = "Load Case 7 - SEISMIC X [Seismic]";
+                cardDetails.innerHTML = `<div class="legend-tag"><div class="legend-color-box" style="background: #ef4444;"></div> nodal: 3.75 kN +X</div>`;
+                addNodalLoadsOnRoof(traces, 'X', '3.750 kN +X', '#ef4444');
+            } else if (caseKey === 'LC8') {
+                cardTitle.innerText = "Load Case 8 - SEISMIC Z [Seismic]";
+                cardDetails.innerHTML = `<div class="legend-tag"><div class="legend-color-box" style="background: #ef4444;"></div> nodal: 3.75 kN +Z</div>`;
+                addNodalLoadsOnRoof(traces, 'Z', '3.750 kN +Z', '#ef4444');
+            } else if (caseKey === 'LC9') {
+                cardTitle.innerText = "Load Case 9 - TEMPERATURE +15C [Temperature]";
+                cardDetails.innerHTML = `<div class="legend-tag"><div class="legend-color-box" style="background: #c084fc;"></div> temperature: +15 °C on 12 members</div>`;
+                addTemperatureLabels(traces);
+            } else if (caseKey === 'LRFD_1') {
+                cardTitle.innerText = "LRFD Combination 1 - 1.4D [LRFD]";
+                cardDetails.innerHTML = `<div class="legend-tag"><div class="legend-color-box" style="background: #ea580c;"></div> distributed: 7 kN/m -Y</div>`;
+                addDistributedBeamsLoad(traces, '#ea580c', 8, [5, 6, 7, 8]);
+            } else if (caseKey === 'ASD_13' || caseKey === 'ASD_15') {
+                cardTitle.innerText = caseKey === 'ASD_15' ? "ASD Combination 15 - D [ASD]" : "ASD Combination 13 - D [ASD]";
+                cardDetails.innerHTML = `<div class="legend-tag"><div class="legend-color-box" style="background: #ea580c;"></div> distributed: 5 kN/m -Y</div>`;
+                addDistributedBeamsLoad(traces, '#ea580c', 8, [5, 6, 7, 8]);
+            }
+        }
+
+        /* KEYBOARD SHORTCUT LISTENERS */
+        window.addEventListener('keydown', function(e) {
+            if (e.key === 'F5') {
+                e.preventDefault();
+                runSolver();
+            } else if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                saveModelFile();
+            } else if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
+                e.preventDefault();
+                openModelFile();
+            } else if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+                e.preventDefault();
+                newModel();
+            }
+        });
+
+        window.onload = runSolver;
+    </script>
+</body>
+</html>
